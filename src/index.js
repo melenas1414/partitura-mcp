@@ -50,12 +50,16 @@ export function validateAbcNotation(abcNotation) {
 /**
  * Converts ABC notation to SVG using abcjs
  * @param {string} abcNotation - The ABC notation to convert
+ * @param {Object} dom - JSDOM instance
  * @returns {string} SVG string
  */
-export function abcToSvg(abcNotation) {
+export function abcToSvg(abcNotation, dom) {
   try {
+    const document = dom.window.document;
+    
     // Create a container for rendering
     const container = document.createElement('div');
+    document.body.appendChild(container);
     
     // Render ABC notation to SVG
     const visualObj = abcjs.renderAbc(container, abcNotation, {
@@ -134,7 +138,6 @@ export function extractSvgElements(svgString) {
     const x = parseFloat(text.getAttribute('x') || 0);
     const y = parseFloat(text.getAttribute('y') || 0);
     const fontSize = text.getAttribute('font-size') || '12';
-    const fontFamily = text.getAttribute('font-family') || 'Arial';
     
     if (content) {
       elements.push({
@@ -142,8 +145,7 @@ export function extractSvgElements(svgString) {
         content,
         x,
         y,
-        fontSize: parseFloat(fontSize),
-        fontFamily
+        fontSize: parseFloat(fontSize)
       });
     }
   });
@@ -163,14 +165,20 @@ export async function abcToPdf(abcNotation, options = {}) {
   // Validate input
   validateAbcNotation(abcNotation);
 
-  // Setup JSDOM for abcjs
-  const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+  // Setup JSDOM for abcjs with more complete environment
+  const dom = new JSDOM('<!DOCTYPE html><html><head></head><body></body></html>', {
+    url: 'http://localhost',
+    pretendToBeVisual: true,
+    resources: 'usable'
+  });
+  
   global.document = dom.window.document;
   global.window = dom.window;
+  global.navigator = dom.window.navigator;
 
   try {
     // Convert ABC to SVG
-    const svgString = abcToSvg(abcNotation);
+    const svgString = abcToSvg(abcNotation, dom);
     
     // Extract SVG elements
     const elements = extractSvgElements(svgString);
@@ -245,9 +253,8 @@ export async function abcToPdf(abcNotation, options = {}) {
           doc.stroke(element.stroke);
         }
       } else if (element.type === 'text') {
-        // Draw text
+        // Draw text with standard font
         doc.fontSize(element.fontSize)
-           .font(element.fontFamily)
            .text(element.content, element.x, element.y, { lineBreak: false });
       }
     });
@@ -274,6 +281,7 @@ export async function abcToPdf(abcNotation, options = {}) {
     // Cleanup global objects
     delete global.document;
     delete global.window;
+    delete global.navigator;
   }
 }
 
