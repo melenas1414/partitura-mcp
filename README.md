@@ -17,6 +17,19 @@ A Model Context Protocol (MCP) server that converts ABC music notation to PDF sh
 npm install
 ```
 
+## Quick Start
+
+Run the demo to generate sample PDFs and test all features:
+
+```bash
+npm run demo
+```
+
+This will:
+- Generate PDF samples for various songs
+- Test security validation
+- Create example PDFs in the `output-samples/` directory
+
 ## Usage
 
 ### Stdio Server (Local)

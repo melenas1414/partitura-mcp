@@ -8,6 +8,9 @@ dist/
 build/
 *.pdf
 
+# Generated samples
+output-samples/
+
 # Logs
 logs/
 *.log
