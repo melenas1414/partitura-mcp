@@ -191,7 +191,7 @@ const httpServer = createServer(async (req, res) => {
           
           <h2>Status</h2>
           <p>Server is running on port ${PORT}</p>
-          <p>Protocol: MCP Streamable HTTP (2025-11-25)</p>
+          <p>Transport: MCP Streamable HTTP</p>
         </body>
       </html>
     `);
@@ -344,7 +344,7 @@ async function main() {
     console.log(`Partitura MCP Streamable HTTP Server started on http://localhost:${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/health`);
     console.log(`MCP endpoint: http://localhost:${PORT}/mcp`);
-    console.log(`Protocol: MCP Streamable HTTP (2025-11-25)`);
+    console.log(`Transport: Streamable HTTP`);
   });
 }
 

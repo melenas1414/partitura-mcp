@@ -43,10 +43,12 @@ partitura-mcp/
 
 2. **HTTP Server** (`http-server.js`)
    - For remote AI assistants
-   - Server-Sent Events (SSE) transport
-   - RESTful health check endpoint
-   - Interactive documentation page
+   - MCP Streamable HTTP transport (protocol version 2025-11-25)
+   - Session-based communication with session ID tracking
+   - Unified `/mcp` endpoint for GET/POST/DELETE
+   - Health check and documentation endpoints
    - CORS enabled for web integration
+   - Graceful shutdown handling
 
 ### ✅ Security
 - **Input Validation**: Zod schema validation

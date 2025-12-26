@@ -134,7 +134,7 @@ npx partitura-mcp
 
 Communication is via standard input/output using JSON-RPC 2.0 protocol.
 
-### HTTP/SSE (Remote)
+### HTTP Streamable (Remote)
 
 For remote AI assistants and web applications:
 
@@ -145,8 +145,19 @@ PORT=3000 npm run start:http
 **Endpoints:**
 - `GET /` - Documentation page
 - `GET /health` - Health check
-- `GET /sse` - Server-Sent Events endpoint for MCP protocol
-- `POST /messages` - Message endpoint for tool invocation
+- `POST /mcp` - MCP endpoint for JSON-RPC messages (initialization and tool calls)
+- `GET /mcp` - MCP endpoint for SSE streaming (requires mcp-session-id header)
+- `DELETE /mcp` - MCP endpoint for session termination
+
+**Protocol**: MCP Streamable HTTP transport specification (released 2025-11-25)
+
+**MCP Protocol Version**: `2024-11-05`
+
+The server uses session-based communication:
+1. Client sends initialization request via POST to `/mcp`
+2. Server responds with session ID in `mcp-session-id` header
+3. Client uses session ID for subsequent requests
+4. Client can establish SSE stream via GET to `/mcp` with session ID header
 
 ## Security Considerations
 
