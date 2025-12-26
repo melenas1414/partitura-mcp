@@ -172,6 +172,14 @@ export async function abcToPdf(abcNotation, options = {}) {
     resources: 'usable'
   });
   
+  // Store original global values for restoration
+  const originalDocument = global.document;
+  const originalWindow = global.window;
+  const originalNavigator = global.navigator;
+  
+  // Set globals required by abcjs
+  // Note: This is standard practice for server-side rendering with browser-based libraries.
+  // abcjs expects these global objects to exist. We restore them in the finally block.
   global.document = dom.window.document;
   global.window = dom.window;
   global.navigator = dom.window.navigator;
@@ -278,10 +286,10 @@ export async function abcToPdf(abcNotation, options = {}) {
   } catch (error) {
     throw new Error(`Failed to generate PDF: ${error.message}`);
   } finally {
-    // Cleanup global objects
-    delete global.document;
-    delete global.window;
-    delete global.navigator;
+    // Restore original global values (safer than delete)
+    global.document = originalDocument;
+    global.window = originalWindow;
+    global.navigator = originalNavigator;
   }
 }
 

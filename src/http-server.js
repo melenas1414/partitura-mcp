@@ -40,7 +40,9 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             abc_notation: {
               type: 'string',
-              description: 'The ABC notation string to convert. Must be valid ABC notation format. Example: "X:1\\nT:Scale\\nM:4/4\\nL:1/4\\nK:C\\nC D E F | G A B c |"',
+              description: 'The ABC notation string to convert. Must be valid ABC notation format. ' +
+                          'Example (use actual newlines, not escape sequences): ' +
+                          'X:1 [newline] T:Scale [newline] M:4/4 [newline] L:1/4 [newline] K:C [newline] C D E F | G A B c |',
             },
             title: {
               type: 'string',
