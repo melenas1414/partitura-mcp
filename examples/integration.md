@@ -185,6 +185,7 @@ import { writeFileSync } from 'fs';
 class PartituraHttpClient {
   constructor(baseUrl = 'http://localhost:3000') {
     this.baseUrl = baseUrl;
+    this.sessionId = null;
   }
   
   async health() {
@@ -192,50 +193,110 @@ class PartituraHttpClient {
     return response.json();
   }
   
-  async convertAbcToPdf(abcNotation, options = {}) {
-    // Note: HTTP/SSE implementation depends on your client library
-    // This is a simplified example
-    const eventSource = new EventSource(`${this.baseUrl}/sse`);
-    
-    return new Promise((resolve, reject) => {
-      eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'response') {
-          resolve(data.result);
-          eventSource.close();
-        }
-      };
-      
-      eventSource.onerror = (error) => {
-        reject(error);
-        eventSource.close();
-      };
-      
-      // Send request
-      fetch(`${this.baseUrl}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'tools/call',
-          params: {
-            name: 'abc_to_pdf',
-            arguments: {
-              abc_notation: abcNotation,
-              ...options
-            }
+  async initialize() {
+    const response = await fetch(`${this.baseUrl}/mcp`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream'
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2024-11-05',
+          capabilities: {},
+          clientInfo: {
+            name: 'partitura-http-client',
+            version: '1.0.0'
           }
-        })
-      });
+        }
+      })
     });
+    
+    // Extract session ID from response header
+    this.sessionId = response.headers.get('mcp-session-id');
+    
+    // Parse SSE response
+    const text = await response.text();
+    const match = text.match(/data: ({.*})/);
+    if (match) {
+      return JSON.parse(match[1]);
+    }
+    throw new Error('Failed to parse initialization response');
+  }
+  
+  async convertAbcToPdf(abcNotation, options = {}) {
+    if (!this.sessionId) {
+      await this.initialize();
+    }
+    
+    const response = await fetch(`${this.baseUrl}/mcp`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+        'mcp-session-id': this.sessionId
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'abc_to_pdf',
+          arguments: {
+            abc_notation: abcNotation,
+            ...options
+          }
+        }
+      })
+    });
+    
+    // Parse SSE response
+    const text = await response.text();
+    const match = text.match(/data: ({.*})/);
+    if (match) {
+      const result = JSON.parse(match[1]);
+      return result.result;
+    }
+    throw new Error('Failed to parse response');
+  }
+  
+  async savePdf(abcNotation, outputPath, options = {}) {
+    const result = await this.convertAbcToPdf(abcNotation, options);
+    const resource = result.content.find(c => c.type === 'resource');
+    
+    if (!resource) {
+      throw new Error('No PDF resource in response');
+    }
+    
+    const base64Data = resource.resource.uri.split(',')[1];
+    const pdfBuffer = Buffer.from(base64Data, 'base64');
+    writeFileSync(outputPath, pdfBuffer);
+    
+    return pdfBuffer.length;
   }
 }
 
 // Usage
 const client = new PartituraHttpClient('http://localhost:3000');
+
+// Check server health
 const status = await client.health();
 console.log('Server status:', status);
+
+// Initialize session and convert ABC to PDF
+const abc = `X:1
+T:Simple Tune
+M:4/4
+K:C
+C D E F | G A B c |`;
+
+const size = await client.savePdf(abc, 'output.pdf', {
+  title: 'Simple Tune'
+});
+console.log(`PDF saved! Size: ${Math.round(size / 1024)}KB`);
 ```
 
 ## Python Client
@@ -359,8 +420,53 @@ curl http://localhost:3000/health
 # Get server info (HTML page)
 curl http://localhost:3000/
 
-# Note: For actual tool calls via HTTP, you need to use the SSE protocol
-# which requires a proper client library. See the Node.js example above.
+# Initialize MCP session
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {
+        "name": "curl-client",
+        "version": "1.0.0"
+      }
+    }
+  }'
+
+# List tools (requires session ID from initialization)
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "mcp-session-id: YOUR_SESSION_ID" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list",
+    "params": {}
+  }'
+
+# Call abc_to_pdf tool
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "mcp-session-id: YOUR_SESSION_ID" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {
+      "name": "abc_to_pdf",
+      "arguments": {
+        "abc_notation": "X:1\nT:Scale\nM:4/4\nL:1/4\nK:C\nC D E F | G A B c |",
+        "title": "C Major Scale"
+      }
+    }
+  }'
 ```
 
 ### Testing with MCP Inspector
